@@ -241,13 +241,28 @@ func (vm *BaseConfig) QosString(b, t, i string) string {
 	return strings.Trim(val, " ")
 }
 
+// qemuNICsForConfig returns the NIC drivers accepted by the active VM
+// configuration. QEMU's device listing omits controllers integrated into
+// bare-metal boards, so an explicitly configured board NIC is admitted in
+// addition to the discoverable devices.
+func qemuNICsForConfig(config VMConfig) (map[string]bool, error) {
+	nics, err := qemu.NICs(config.QemuPath, config.Machine)
+	if nics == nil {
+		nics = make(map[string]bool)
+	}
+	if config.Baremetal && config.BaremetalNetworkDriver != "" {
+		nics[config.BaremetalNetworkDriver] = true
+	}
+	return nics, err
+}
+
 func (vm *BaseConfig) ReadFieldConfig(r io.Reader, field, namespace string) error {
 	switch field {
 	case "networks":
 		ns := GetOrCreateNamespace(namespace)
 
 		// get valid NIC drivers for current qemu/machine
-		nics, err := qemu.NICs(ns.vmConfig.QemuPath, ns.vmConfig.Machine)
+		nics, err := qemuNICsForConfig(ns.vmConfig)
 		if err != nil {
 			if strings.Contains(err.Error(), "executable file not found in $PATH") {
 				// warn on not finding kvm because we may just be using containers,
