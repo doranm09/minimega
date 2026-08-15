@@ -8,19 +8,45 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strings"
 
 	log "github.com/sandia-minimega/minimega/v2/pkg/minilog"
 )
 
+var linuxUUIDPaths = []string{
+	"/sys/devices/virtual/dmi/id/product_uuid",
+	"/sys/firmware/qemu_fw_cfg/by_name/opt/falcons/uuid/raw",
+}
+
+func readLinuxUUID(readFile func(string) ([]byte, error)) (string, error) {
+	var errors []string
+	for _, path := range linuxUUIDPaths {
+		d, err := readFile(path)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("%s: %v", path, err))
+			continue
+		}
+
+		uuid := strings.ToLower(strings.Trim(string(d), "\x00 \t\r\n"))
+		if uuid == "" {
+			errors = append(errors, fmt.Sprintf("%s: empty UUID", path))
+			continue
+		}
+
+		return uuid, nil
+	}
+
+	return "", fmt.Errorf("no usable VM UUID source (%s)", strings.Join(errors, "; "))
+}
+
 func getUUID() string {
-	d, err := ioutil.ReadFile("/sys/devices/virtual/dmi/id/product_uuid")
+	uuid, err := readLinuxUUID(ioutil.ReadFile)
 	if err != nil {
 		log.Fatal("unable to get UUID: %v", err)
 	}
 
-	uuid := strings.ToLower(strings.TrimSpace(string(d)))
 	log.Debug("got UUID: %v", uuid)
 
 	return uuid
