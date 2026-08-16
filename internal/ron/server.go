@@ -712,10 +712,8 @@ func (s *Server) handshake(conn net.Conn, expectedUUID string) (*client, error) 
 	// is host-controlled. Guests without DMI or qemu_fw_cfg can leave their UUID
 	// empty and adopt this trusted identity from the handshake response. TCP
 	// clients do not receive this fallback.
-	if expectedUUID != "" && m.Client != nil && m.Client.UUID == "" {
-		m.Client.UUID = expectedUUID
-		m.UUID = expectedUUID
-		log.Info("bound serial client to VM UUID %s", expectedUUID)
+	if err := bindClientUUID(&m, expectedUUID); err != nil {
+		return nil, err
 	}
 
 	s.clientLock.Lock()
@@ -798,6 +796,23 @@ func (s *Server) handshake(conn net.Conn, expectedUUID string) (*client, error) 
 	s.clients[c.UUID] = c
 
 	return c, nil
+}
+
+func bindClientUUID(m *Message, expectedUUID string) error {
+	if m.Client == nil {
+		return fmt.Errorf("client handshake missing client metadata")
+	}
+	if m.Client.UUID != "" {
+		return nil
+	}
+	if expectedUUID == "" {
+		return fmt.Errorf("client handshake missing UUID without serial binding")
+	}
+
+	m.Client.UUID = expectedUUID
+	m.UUID = expectedUUID
+	log.Info("bound serial client to VM UUID %s", expectedUUID)
+	return nil
 }
 
 // client and transport handler for connections.
