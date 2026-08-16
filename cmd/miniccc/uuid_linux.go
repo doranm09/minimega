@@ -16,8 +16,8 @@ import (
 )
 
 var linuxUUIDPaths = []string{
-	"/sys/devices/virtual/dmi/id/product_uuid",
 	"/sys/firmware/qemu_fw_cfg/by_name/opt/falcons/uuid/raw",
+	"/sys/devices/virtual/dmi/id/product_uuid",
 }
 
 func readLinuxUUID(readFile func(string) ([]byte, error)) (string, error) {
