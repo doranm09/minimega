@@ -44,7 +44,12 @@ func readLinuxUUID(readFile func(string) ([]byte, error)) (string, error) {
 func getUUID() string {
 	uuid, err := readLinuxUUID(ioutil.ReadFile)
 	if err != nil {
-		log.Fatal("unable to get UUID: %v", err)
+		// Serial MiniCCC connections are already bound to a specific VM by the
+		// host. Leave the UUID empty so that the server can return that trusted
+		// identity during the handshake. This is required on architectures where
+		// neither DMI nor qemu_fw_cfg is exposed by the guest kernel.
+		log.Warn("unable to get UUID locally; requesting serial-bound identity: %v", err)
+		return ""
 	}
 
 	log.Debug("got UUID: %v", uuid)
